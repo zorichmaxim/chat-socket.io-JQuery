@@ -17,33 +17,45 @@ http.listen(port, () => console.log('listen port 3000'));
 
 io.on('connection', socket => {
     console.log('a user connected');
-    MongoClient.connect(url, (err, db) => {
-        db.collection("users").find().toArray((err, results) => {
-            io.emit('load items', results);
+    socket.on('authentication', (user) => {
+        MongoClient.connect(url, (err, db) => {
+            db.collection("users").find().toArray((err, results) => {
+                let userNames = [];
+                for (let item of results) {
+                    userNames.push(item.name);
+                }
+                let authentificationState = userNames.indexOf(user.name);
+                if (authentificationState == -1) {
+                    io.emit('load items', results);
+                }
+                else {
+                    io.emit('name is busy');
+                }
+            });
         });
+
     });
 
+    /*
+     MongoClient.connect(url, (err, db) => {
+     db.collection("users").find().toArray((err, results) => {
+     io.emit('load items', results);
+     });
+     });
+     */
 
     socket.on('disconnect', () => {
         console.log('a user disconnect');
     });
 
-    socket.on('chat msg', (msg) => {
-        io.emit('chat message', msg);
-
-        let msgObject = {
-            name: 'User',
-            msg,
-        };
+    socket.on('chat msg from client', (msg) => {
+        io.emit('chat message from io', msg);
+        let msgObject = {};
+        [msgObject.msg, msgObject.name] = msg;
         MongoClient.connect(url, (err, db) => {
             db.collection("users").insertOne(msgObject, (err, results) => {
-                console.log(results);
                 db.close();
             });
         });
     })
 });
-
-
-//app.use(bodyParser.urlencoded({extended: true}));
-
